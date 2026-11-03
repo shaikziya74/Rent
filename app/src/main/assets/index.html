@@ -51,7 +51,7 @@ const fmt=n=>(+n||0).toLocaleString("en-IN");
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function status(h,m){const r=D.rec[rk(h,m)];if(r&&r.date)return"paid";
  const cur=Y*12+m<=now.getFullYear()*12+now.getMonth();return cur?"due":"fut"}
-const yrSel=$("#yr");for(let y=now.getFullYear()-2;y<=now.getFullYear()+2;y++)yrSel.add(new Option(y,y,0,y===Y));
+const yrSel=$("#yr");for(let y=2024;y<=2080;y++)yrSel.add(new Option(y,y,0,y===Y));
 yrSel.onchange=()=>{Y=+yrSel.value;render()};
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{tab=b.dataset.t;render()});
 function render(){

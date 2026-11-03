@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rent Tracker - Shaik Ziya</title>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--tx:#14202b;--mu:#6b7886;--bd:#dde3e9;--ac:#0a84c6;--ok:#2e9e46;--okbg:#dff3e3;--bad:#d62828;--badbg:#fbe1e1;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10161c;--card:#1a232c;--tx:#e8eef3;--mu:#92a0ad;--bd:#2b3743;--ac:#4cb3ee;--ok:#5fd078;--okbg:#17321f;--bad:#ff6b6b;--badbg:#3a1b1b}}
+:root[data-theme="dark"]{--bg:#10161c;--card:#1a232c;--tx:#e8eef3;--mu:#92a0ad;--bd:#2b3743;--ac:#4cb3ee;--ok:#5fd078;--okbg:#17321f;--bad:#ff6b6b;--badbg:#3a1b1b}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px system-ui,-apple-system,Roboto,sans-serif;padding-bottom:70px}
+header{position:sticky;top:env(safe-area-inset-top,0px);background:var(--ac);color:#fff;padding:12px 14px;z-index:5;display:flex;gap:8px;align-items:center}
+header h1{font-size:18px;margin:0;flex:1}
+select,input,textarea,button{font:inherit;color:var(--tx)}
+select,input,textarea{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:8px;width:100%}
+header select{width:auto;min-width:92px;background:#fff;color:#000;font-weight:700;border:0}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--card);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom,0px);z-index:5}
+nav button{flex:1;padding:14px 0;background:none;border:0;color:var(--mu);font-weight:600}
+nav button.on{color:var(--ac);border-top:3px solid var(--ac)}
+main{padding:12px;max-width:640px;margin:auto}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:10px}
+.row{display:flex;gap:10px;align-items:center}.grow{flex:1;min-width:0}
+.num{width:38px;height:38px;border-radius:50%;background:var(--ac);color:#fff;display:grid;place-items:center;font-weight:700;flex:none}
+.mu{color:var(--mu);font-size:13px}
+.pill{padding:4px 10px;border-radius:99px;font-size:13px;font-weight:700;white-space:nowrap}
+.paid{background:var(--okbg);color:var(--ok)}.due{background:var(--badbg);color:var(--bad)}.fut{background:var(--bd);color:var(--mu)}
+.sum{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.sum div{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px}.sum b{font-size:20px;display:block}
+.btn{background:var(--ac);color:#fff;border:0;border-radius:10px;padding:12px;font-weight:700;width:100%}
+.btn.alt{background:var(--bd);color:var(--tx)}.btn.red{background:var(--bad)}
+.mon{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
+.mon button{border:1px solid var(--bd);border-radius:8px;padding:6px 2px;background:var(--card);font-size:12px}
+.mon .paid{border-color:var(--ok)}.mon .due{border-color:var(--bad)}
+.tw{overflow-x:auto;border:1px solid var(--bd);border-radius:10px}
+table{border-collapse:collapse;font-size:13px;width:100%}th,td{border:1px solid var(--bd);padding:5px 6px;text-align:right;white-space:nowrap}
+th{background:var(--ac);color:#fff}td:first-child,th:first-child{text-align:left;position:sticky;left:0;background:var(--card);color:var(--tx)}th:first-child{background:var(--ac);color:#fff}
+td.p{background:var(--okbg)}td.u{background:var(--badbg);color:var(--bad)}tfoot td{font-weight:700}
+.modal{position:fixed;inset:0;background:#0008;display:none;align-items:flex-end;z-index:10}.modal.show{display:flex}
+.sheet{background:var(--card);width:100%;border-radius:16px 16px 0 0;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));max-height:90%;overflow:auto}
+label{display:block;font-size:13px;color:var(--mu);margin:10px 0 4px}
+</style></head><body>
+<header><h1 id="ttl">Rent Tracker<div style="font-size:12px;font-weight:400;opacity:.9">Shaik Ziya</div></h1><select id="yr"></select></header>
+<main id="m"></main>
+<nav><button data-t="home">This month</button><button data-t="houses">Houses</button><button data-t="report">Report</button><button data-t="backup">Backup</button></nav>
+<div class="modal" id="md"><div class="sheet" id="sh"></div></div>
+<script>
+const MN=["January","February","March","April","May","June","July","August","September","October","November","December"];
+const KEY="renttracker_v1";
+let D=null,tab="home",now=new Date(),Y=now.getFullYear(),M=now.getMonth();
+function fresh(){return{houses:Array.from({length:11},()=>({name:"",rent:0,advance:0})),rec:{}}}
+try{D=JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){}
+if(!D||!D.houses)D=fresh();
+function save(){try{localStorage.setItem(KEY,JSON.stringify(D))}catch(e){}}
+const $=s=>document.querySelector(s);
+const rk=(h,m)=>Y+"-"+h+"-"+m;
+const fmt=n=>(+n||0).toLocaleString("en-IN");
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function status(h,m){const r=D.rec[rk(h,m)];if(r&&r.date)return"paid";
+ const cur=Y*12+m<=now.getFullYear()*12+now.getMonth();return cur?"due":"fut"}
+const yrSel=$("#yr");for(let y=now.getFullYear()-2;y<=now.getFullYear()+2;y++)yrSel.add(new Option(y,y,0,y===Y));
+yrSel.onchange=()=>{Y=+yrSel.value;render()};
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{tab=b.dataset.t;render()});
+function render(){
+ document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===tab));
+ $("#m").innerHTML=({home:vHome,houses:vHouses,report:vReport,backup:vBackup})[tab]();
+ if(tab==="houses")bindHouses();if(tab==="backup")bindBackup();window.scrollTo(0,0)}
+function vHome(){
+ let got=0,pend=0,nd=0,html="";
+ for(let h=0;h<11;h++){const s=status(h,M),r=D.rec[rk(h,M)],H=D.houses[h];
+  if(s==="paid")got+=+r.amount||0;else if(s==="due"){pend+=+H.rent||0;nd++}
+  html+=`<div class="card"><div class="row" data-h="${h}" data-m="${M}" style="cursor:pointer"><div class="num">${h+1}</div>
+  <div class="grow"><b>${esc(H.name||"No tenant")}</b><div class="mu">${s==="paid"?"Received "+esc(r.date)+" · ₹"+fmt(r.amount):"Rent ₹"+fmt(H.rent)}</div></div>
+  <span class="pill ${s}">${s==="paid"?"Paid":s==="due"?"Not paid":"Upcoming"}</span></div></div>`}
+ return`<div class="row" style="margin-bottom:10px"><button class="btn alt" onclick="M=(M+11)%12;render()" style="width:48px">‹</button>
+ <div class="grow" style="text-align:center"><b>${MN[M]} ${Y}</b></div><button class="btn alt" onclick="M=(M+1)%12;render()" style="width:48px">›</button></div>
+ <div class="sum"><div><span class="mu">Received</span><b style="color:var(--ok)">₹${fmt(got)}</b></div><div><span class="mu">Pending (${nd})</span><b style="color:var(--bad)">₹${fmt(pend)}</b></div></div>`+html}
+function vHouses(){
+ return D.houses.map((H,h)=>`<div class="card"><div class="row"><div class="num">${h+1}</div><div class="grow"><input data-h="${h}" data-f="name" placeholder="Tenant name" value="${esc(H.name)}"></div></div>
+ <div class="row" style="margin-top:8px"><div class="grow"><label>Monthly rent</label><input type="number" inputmode="numeric" data-h="${h}" data-f="rent" value="${H.rent||""}"></div>
+ <div class="grow"><label>Advance</label><input type="number" inputmode="numeric" data-h="${h}" data-f="advance" value="${H.advance||""}"></div></div></div>`).join("")+
+ `<p class="mu">Change a name when a new tenant moves in. Past records stay as they are.</p>`}
+function bindHouses(){document.querySelectorAll("#m input").forEach(i=>i.oninput=()=>{const H=D.houses[+i.dataset.h],f=i.dataset.f;H[f]=f==="name"?i.value:(+i.value||0);save()})}
+function vReport(){
+ const tot=Array(11).fill(0);let g=0,mt=0;
+ let rows=MN.map((n,m)=>{let t=0;const c=D.houses.map((H,h)=>{const r=D.rec[rk(h,m)],s=status(h,m);const a=r&&r.date?+r.amount||0:0;tot[h]+=a;t+=a;mt+=r&&r.date?+r.maint||0:0;
+  return`<td class="${s==="paid"?"p":s==="due"?"u":""}">${s==="fut"?"":fmt(a)}</td>`}).join("");g+=t;return`<tr><td>${n.slice(0,3)}</td>${c}<td><b>${fmt(t)}</b></td></tr>`}).join("");
+ return`<div class="sum"><div><span class="mu">Total rents ${Y}</span><b>₹${fmt(g)}</b></div><div><span class="mu">Maintenance</span><b>₹${fmt(mt)}</b></div></div>
+ <div class="tw"><table><thead><tr><th>Month</th>${D.houses.map((H,h)=>`<th>${h+1}<br><small>${esc(H.name.split(" ")[0]||"-")}</small></th>`).join("")}<th>Total</th></tr></thead><tbody>${rows}</tbody>
+ <tfoot><tr><td>Total</td>${tot.map(t=>`<td>${fmt(t)}</td>`).join("")}<td>${fmt(g)}</td></tr></tfoot></table></div><p class="mu">Red = not paid. Green = received.</p>`}
+function vBackup(){const A=window.Android?`<div class="card"><b>Google Drive</b><p class="mu">In the file picker, choose Drive, then pick a folder (save) or the backup file (restore).</p><button class="btn" id="gs">Save backup to Google Drive</button><button class="btn alt" id="gr" style="margin-top:8px">Restore from Google Drive</button></div>`:"";return A+`<div class="card"><b>Backup / restore (text)</b><p class="mu">Copy this text and keep it safe (WhatsApp to yourself, Notes). Paste it back to restore on another phone.</p>
+ <textarea id="bk" rows="6">${esc(JSON.stringify(D))}</textarea><button class="btn" id="cp" style="margin-top:8px">Copy backup</button>
+ <button class="btn alt" id="rs" style="margin-top:8px">Restore from pasted text</button></div>`}
+function bindBackup(){if(window.Android){$("#gs").onclick=()=>Android.saveBackup(JSON.stringify(D));$("#gr").onclick=()=>Android.restoreBackup()}$("#cp").onclick=()=>{$("#bk").select();try{navigator.clipboard.writeText($("#bk").value)}catch(e){document.execCommand("copy")}$("#cp").textContent="Copied ✓"};
+ $("#rs").onclick=()=>{try{const x=JSON.parse($("#bk").value);if(!x.houses||!x.rec)throw 0;D=x;save();tab="home";render()}catch(e){$("#rs").textContent="Invalid backup text"}}}
+// month sheet
+function openMonth(h,m){const H=D.houses[h],k=rk(h,m),r=D.rec[k]||{};const td=new Date().toISOString().slice(0,10);
+ $("#sh").innerHTML=`<div class="row"><div class="num">${h+1}</div><div class="grow"><b>${esc(H.name||"No tenant")}</b><div class="mu">${MN[m]} ${Y}</div></div></div>
+ <label>Date received</label><input type="date" id="fd" value="${r.date||td}">
+ <label>Rent amount</label><input type="number" inputmode="numeric" id="fa" value="${r.amount??(H.rent||"")}">
+ <label>Maintenance (optional)</label><input type="number" inputmode="numeric" id="fm" value="${r.maint||""}">
+ <label>Note</label><input id="fn" value="${esc(r.note||"")}">
+ <div class="row" style="margin-top:14px"><button class="btn alt" id="x1">Cancel</button><button class="btn" id="x2">Save as paid</button></div>
+ ${r.date?`<button class="btn red" id="x3" style="margin-top:8px">Mark as not paid</button>`:""}`;
+ $("#md").classList.add("show");
+ $("#x1").onclick=()=>$("#md").classList.remove("show");
+ $("#x2").onclick=()=>{D.rec[k]={date:$("#fd").value,amount:+$("#fa").value||0,maint:+$("#fm").value||0,note:$("#fn").value};save();$("#md").classList.remove("show");render()};
+ if($("#x3"))$("#x3").onclick=()=>{delete D.rec[k];save();$("#md").classList.remove("show");render()}}
+$("#md").onclick=e=>{if(e.target.id==="md")$("#md").classList.remove("show")};
+document.addEventListener("click",e=>{const t=e.target.closest("[data-m]");if(t&&tab==="home")openMonth(+t.dataset.h,+t.dataset.m)});
+window.onRestore=t=>{try{const x=JSON.parse(t);if(!x.houses||!x.rec)throw 0;D=x;save();tab="home";render();alert("Backup restored")}catch(e){alert("Invalid backup file")}};
+window.onSaved=()=>alert("Backup saved");
+render();
+</script></body></html>

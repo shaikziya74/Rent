@@ -2,6 +2,7 @@ package com.shaikziya.renttracker;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
 import android.webkit.JavascriptInterface;
@@ -15,13 +16,17 @@ import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
 
 public class MainActivity extends Activity {
     private WebView web;
-    private String pending = "";
+
+    private SharedPreferences prefs() {
+        return getSharedPreferences("rt", MODE_PRIVATE);
+    }
+
+    private void js(String code) {
+        runOnUiThread(() -> web.evaluateJavascript(code, null));
+    }
 
     @Override
     protected void onCreate(Bundle b) {
@@ -39,16 +44,39 @@ public class MainActivity extends Activity {
 
     class Bridge {
         @JavascriptInterface
-        public void saveBackup(String text) {
-            pending = text;
+        public boolean hasBackupFile() {
+            return prefs().getString("uri", null) != null;
+        }
+
+        @JavascriptInterface
+        public void chooseBackupFile() {
             runOnUiThread(() -> {
                 Intent i = new Intent(Intent.ACTION_CREATE_DOCUMENT);
                 i.addCategory(Intent.CATEGORY_OPENABLE);
                 i.setType("application/json");
-                String d = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
-                i.putExtra(Intent.EXTRA_TITLE, "rent-backup-" + d + ".json");
-                startActivityForResult(i, 1);
+                i.putExtra(Intent.EXTRA_TITLE, "rent-tracker-backup.json");
+                i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                        | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+                startActivityForResult(i, 3);
             });
+        }
+
+        @JavascriptInterface
+        public void autoBackup(final String text) {
+            final String uri = prefs().getString("uri", null);
+            if (uri == null) {
+                js("onBackupResult(false," + JSONObject.quote("No backup file chosen") + ")");
+                return;
+            }
+            new Thread(() -> {
+                try (OutputStream o = getContentResolver().openOutputStream(Uri.parse(uri), "wt")) {
+                    o.write(text.getBytes("UTF-8"));
+                    js("onBackupResult(true,\"\")");
+                } catch (Exception e) {
+                    js("onBackupResult(false," + JSONObject.quote(String.valueOf(e.getMessage())) + ")");
+                }
+            }).start();
         }
 
         @JavascriptInterface
@@ -68,11 +96,15 @@ public class MainActivity extends Activity {
         if (res != RESULT_OK || data == null || data.getData() == null) return;
         Uri u = data.getData();
         try {
-            if (req == 1) {
-                try (OutputStream o = getContentResolver().openOutputStream(u, "wt")) {
-                    o.write(pending.getBytes("UTF-8"));
+            if (req == 3) {
+                try {
+                    int fl = data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION
+                            | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                    getContentResolver().takePersistableUriPermission(u, fl);
+                } catch (Exception ignored) {
                 }
-                web.evaluateJavascript("onSaved()", null);
+                prefs().edit().putString("uri", u.toString()).apply();
+                web.evaluateJavascript("onBackupChosen()", null);
             } else if (req == 2) {
                 ByteArrayOutputStream bo = new ByteArrayOutputStream();
                 try (InputStream in = getContentResolver().openInputStream(u)) {

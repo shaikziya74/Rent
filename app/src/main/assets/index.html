@@ -4,13 +4,15 @@
 <title>Rent Tracker - Shaik Ziya</title>
 <style>
 :root{color-scheme:dark;--bg:#000;--card:#121212;--tx:#f0f0f0;--mu:#9a9a9a;--bd:#2a2a2a;--ac:#1f8fd0;--ok:#5fd078;--okbg:#10301a;--bad:#ff6b6b;--badbg:#3a1414;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+:root[data-theme="light"]{color-scheme:light;--bg:#f4f6f8;--card:#fff;--tx:#14202b;--mu:#6b7886;--bd:#dde3e9;--ac:#0a84c6;--ok:#2e9e46;--okbg:#dff3e3;--bad:#d62828;--badbg:#fbe1e1}
 *{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
 body{margin:0;background:var(--bg);color:var(--tx);font:16px system-ui,-apple-system,Roboto,sans-serif;padding-bottom:70px}
 header{position:sticky;top:env(safe-area-inset-top,0px);background:var(--ac);color:#fff;padding:12px 14px;z-index:5;display:flex;gap:8px;align-items:center}
 header h1{font-size:18px;margin:0;flex:1}
 select,input,textarea,button{font:inherit;color:var(--tx)}
-select,input,textarea{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:8px;width:100%}
-header select{width:auto;min-width:92px;background:#000;color:#fff;font-weight:700;border:1px solid #fff4}
+select,input{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:8px;width:100%}
+select option{background:var(--card);color:var(--tx)}
+header select{width:auto;min-width:92px;background:#0006;color:#fff;font-weight:700;border:1px solid #fff5}
 nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--card);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom,0px);z-index:5}
 nav button{flex:1;padding:14px 0;background:none;border:0;color:var(--mu);font-weight:600}
 nav button.on{color:var(--ac);border-top:3px solid var(--ac)}
@@ -24,7 +26,7 @@ main{padding:12px;max-width:640px;margin:auto}
 .sum{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
 .sum div{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px}.sum b{font-size:20px;display:block}
 .btn{background:var(--ac);color:#fff;border:0;border-radius:10px;padding:12px;font-weight:700;width:100%}
-.btn.alt{background:var(--bd);color:var(--tx)}.btn.red{background:var(--bad)}
+.btn.alt{background:var(--bd);color:var(--tx)}.btn.red{background:var(--bad);color:#fff}.btn.sm{width:auto;padding:8px 10px;font-size:13px}
 .tw{overflow-x:auto;border:1px solid var(--bd);border-radius:10px}
 table{border-collapse:collapse;font-size:13px;width:100%}th,td{border:1px solid var(--bd);padding:5px 6px;text-align:right;white-space:nowrap}
 th{background:var(--ac);color:#fff}td:first-child,th:first-child{text-align:left;position:sticky;left:0;background:var(--card);color:var(--tx)}th:first-child{background:var(--ac);color:#fff}
@@ -33,61 +35,85 @@ td.p{background:var(--okbg)}td.u{background:var(--badbg);color:var(--bad)}tfoot 
 .sheet{background:var(--card);width:100%;border-radius:16px 16px 0 0;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));max-height:90%;overflow:auto}
 label{display:block;font-size:13px;color:var(--mu);margin:10px 0 4px}
 </style></head><body>
-<header><h1 id="ttl">Rent Tracker<div style="font-size:12px;font-weight:400;opacity:.9">Shaik Ziya</div></h1><select id="yr"></select></header>
+<header><h1>Rent Tracker<div style="font-size:12px;font-weight:400;opacity:.9">Shaik Ziya</div></h1><select id="yr"></select></header>
 <main id="m"></main>
-<nav><button data-t="home">This month</button><button data-t="houses">Houses</button><button data-t="report">Report</button><button data-t="backup">Backup</button></nav>
+<nav><button data-t="home">This month</button><button data-t="houses">Houses</button><button data-t="report">Report</button><button data-t="settings">Settings</button></nav>
 <div class="modal" id="md"><div class="sheet" id="sh"></div></div>
 <script>
 const MN=["January","February","March","April","May","June","July","August","September","October","November","December"];
-const KEY="renttracker_v1";
+const KEY="renttracker_v1",LK="renttracker_last",isApp=!!window.Android;
+const DEF={y1:2024,y2:2080,theme:"night",freq:"weekly"};
 let D=null,tab="home",now=new Date(),Y=now.getFullYear(),M=now.getMonth();
-function fresh(){return{houses:Array.from({length:11},()=>({name:"",rent:0,advance:0})),rec:{}}}
-try{D=JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){}
-if(!D||!D.houses)D=fresh();
-function save(){try{localStorage.setItem(KEY,JSON.stringify(D))}catch(e){}}
+function fresh(){return{houses:Array.from({length:11},(_,i)=>({id:i,name:"",rent:0,advance:0,advDate:""})),rec:{},set:Object.assign({},DEF)}}
+function norm(x){if(!x||!x.houses||!x.rec)return null;x.houses.forEach((h,i)=>{if(h.id==null)h.id=i;if(h.advDate==null)h.advDate=""});x.set=Object.assign({},DEF,x.set||{});return x}
+try{D=norm(JSON.parse(localStorage.getItem(KEY)||"null"))}catch(e){}
+if(!D)D=fresh();
 const $=s=>document.querySelector(s);
-const rk=(h,m)=>Y+"-"+h+"-"+m;
+const rk=(id,m)=>Y+"-"+id+"-"+m;
 const fmt=n=>(+n||0).toLocaleString("en-IN");
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-function status(h,m){const r=D.rec[rk(h,m)];if(r&&r.date)return"paid";
- const cur=Y*12+m<=now.getFullYear()*12+now.getMonth();return cur?"due":"fut"}
-const yrSel=$("#yr");for(let y=2024;y<=2080;y++)yrSel.add(new Option(y,y,0,y===Y));
+const hid=id=>D.houses.find(h=>h.id===id);
+const EVERY={change:0,daily:864e5,weekly:6048e5};let bt=null;
+function lastB(){try{return +localStorage.getItem(LK)||0}catch(e){return 0}}
+function autoB(force){if(!isApp||!Android.hasBackupFile())return;const f=D.set.freq;if(!force&&(f==="off"||Date.now()-lastB()<EVERY[f]))return;Android.autoBackup(JSON.stringify(D))}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(D))}catch(e){}clearTimeout(bt);bt=setTimeout(()=>autoB(false),3000)}
+window.onBackupResult=(ok,msg)=>{if(ok){try{localStorage.setItem(LK,Date.now())}catch(e){}}toast(ok?"Backup saved to Drive":"Backup failed: "+msg);if(tab==="settings")render()};
+window.onBackupChosen=()=>autoB(true);
+window.onRestore=t=>{try{const x=norm(JSON.parse(t));if(!x)throw 0;D=x;save();theme();buildYears();tab="home";render();toast("Backup restored")}catch(e){toast("Invalid backup file")}};
+function toast(t){const d=document.createElement("div");d.textContent=t;d.style.cssText="position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:10px 16px;border-radius:99px;z-index:20;font-size:14px;max-width:90%;text-align:center";document.body.appendChild(d);setTimeout(()=>d.remove(),2800)}
+function ask(msg,fn){$("#sh").innerHTML=`<p>${esc(msg)}</p><div class="row"><button class="btn alt" id="n1">Cancel</button><button class="btn red" id="n2">Yes, remove</button></div>`;$("#md").classList.add("show");$("#n1").onclick=()=>$("#md").classList.remove("show");$("#n2").onclick=()=>{$("#md").classList.remove("show");fn()}}
+function theme(){document.documentElement.dataset.theme=D.set.theme==="day"?"light":"dark"}
+const yrSel=$("#yr");
+function buildYears(){const s=D.set;if(Y<s.y1)Y=s.y1;if(Y>s.y2)Y=s.y2;yrSel.innerHTML="";for(let y=s.y1;y<=s.y2;y++)yrSel.add(new Option(y,y,0,y===Y))}
 yrSel.onchange=()=>{Y=+yrSel.value;render()};
+function status(id,m){const r=D.rec[rk(id,m)];if(r&&r.date)return"paid";return Y*12+m<=now.getFullYear()*12+now.getMonth()?"due":"fut"}
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{tab=b.dataset.t;render()});
 function render(){
  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===tab));
- $("#m").innerHTML=({home:vHome,houses:vHouses,report:vReport,backup:vBackup})[tab]();
- if(tab==="houses")bindHouses();if(tab==="backup")bindBackup();window.scrollTo(0,0)}
-function vHome(){
- let got=0,pend=0,nd=0,html="";
- for(let h=0;h<11;h++){const s=status(h,M),r=D.rec[rk(h,M)],H=D.houses[h];
+ $("#m").innerHTML=({home:vHome,houses:vHouses,report:vReport,settings:vSettings})[tab]();
+ if(tab==="houses")bindHouses();if(tab==="settings")bindSettings();window.scrollTo(0,0)}
+function vHome(){let got=0,pend=0,nd=0,html="";
+ D.houses.forEach(H=>{const s=status(H.id,M),r=D.rec[rk(H.id,M)];
   if(s==="paid")got+=+r.amount||0;else if(s==="due"){pend+=+H.rent||0;nd++}
-  html+=`<div class="card"><div class="row" data-h="${h}" data-m="${M}" style="cursor:pointer"><div class="num">${h+1}</div>
+  html+=`<div class="card"><div class="row" data-h="${H.id}" data-m="${M}" style="cursor:pointer"><div class="num">${H.id+1}</div>
   <div class="grow"><b>${esc(H.name||"No tenant")}</b><div class="mu">${s==="paid"?"Received "+esc(r.date)+" · ₹"+fmt(r.amount):"Rent ₹"+fmt(H.rent)}</div></div>
-  <span class="pill ${s}">${s==="paid"?"Paid":s==="due"?"Not paid":"Upcoming"}</span></div></div>`}
+  <span class="pill ${s}">${s==="paid"?"Paid":s==="due"?"Not paid":"Upcoming"}</span></div></div>`});
  return`<div class="row" style="margin-bottom:10px"><button class="btn alt" onclick="M=(M+11)%12;render()" style="width:48px">‹</button>
  <div class="grow" style="text-align:center"><b>${MN[M]} ${Y}</b></div><button class="btn alt" onclick="M=(M+1)%12;render()" style="width:48px">›</button></div>
  <div class="sum"><div><span class="mu">Received</span><b style="color:var(--ok)">₹${fmt(got)}</b></div><div><span class="mu">Pending (${nd})</span><b style="color:var(--bad)">₹${fmt(pend)}</b></div></div>`+html}
-function vHouses(){
- return D.houses.map((H,h)=>`<div class="card"><div class="row"><div class="num">${h+1}</div><div class="grow"><input data-h="${h}" data-f="name" placeholder="Tenant name" value="${esc(H.name)}"></div></div>
- <div class="row" style="margin-top:8px"><div class="grow"><label>Monthly rent</label><input type="number" inputmode="numeric" data-h="${h}" data-f="rent" value="${H.rent||""}"></div>
- <div class="grow"><label>Advance</label><input type="number" inputmode="numeric" data-h="${h}" data-f="advance" value="${H.advance||""}"></div></div></div>`).join("")+
- `<p class="mu">Change a name when a new tenant moves in. Past records stay as they are.</p>`}
-function bindHouses(){document.querySelectorAll("#m input").forEach(i=>i.oninput=()=>{const H=D.houses[+i.dataset.h],f=i.dataset.f;H[f]=f==="name"?i.value:(+i.value||0);save()})}
-function vReport(){
- const tot=Array(11).fill(0);let g=0,mt=0;
- let rows=MN.map((n,m)=>{let t=0;const c=D.houses.map((H,h)=>{const r=D.rec[rk(h,m)],s=status(h,m);const a=r&&r.date?+r.amount||0:0;tot[h]+=a;t+=a;mt+=r&&r.date?+r.maint||0:0;
+function vHouses(){return D.houses.map(H=>`<div class="card"><div class="row"><div class="num">${H.id+1}</div><div class="grow"><input data-h="${H.id}" data-f="name" placeholder="Tenant name" value="${esc(H.name)}"></div><button class="btn red sm" data-del="${H.id}">Remove</button></div>
+ <div class="row" style="margin-top:8px"><div class="grow"><label>Monthly rent</label><input type="number" inputmode="numeric" data-h="${H.id}" data-f="rent" value="${H.rent||""}"></div>
+ <div class="grow"><label>Advance</label><input type="number" inputmode="numeric" data-h="${H.id}" data-f="advance" value="${H.advance||""}"></div></div>
+ <label>Advance taken on</label><input type="date" data-h="${H.id}" data-f="advDate" value="${esc(H.advDate||"")}"></div>`).join("")+
+ `<button class="btn" id="addh">+ Add house</button><p class="mu">Change a name when a new tenant moves in. Past records stay as they are.</p>`}
+function bindHouses(){
+ document.querySelectorAll("#m input[data-h]").forEach(i=>i.oninput=()=>{const H=hid(+i.dataset.h),f=i.dataset.f;H[f]=(f==="name"||f==="advDate")?i.value:(+i.value||0);save()});
+ document.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{const id=+b.dataset.del;ask("Remove house "+(id+1)+" and all its rent records?",()=>{D.houses=D.houses.filter(h=>h.id!==id);Object.keys(D.rec).forEach(k=>{if(+k.split("-")[1]===id)delete D.rec[k]});save();render()})});
+ $("#addh").onclick=()=>{const id=D.houses.length?Math.max(...D.houses.map(h=>h.id))+1:0;D.houses.push({id,name:"",rent:0,advance:0,advDate:""});save();render();window.scrollTo(0,document.body.scrollHeight)}}
+function vReport(){const hs=D.houses,tot=hs.map(()=>0);let g=0,mt=0;
+ const rows=MN.map((n,m)=>{let t=0;const c=hs.map((H,i)=>{const r=D.rec[rk(H.id,m)],s=status(H.id,m),a=r&&r.date?+r.amount||0:0;tot[i]+=a;t+=a;mt+=r&&r.date?+r.maint||0:0;
   return`<td class="${s==="paid"?"p":s==="due"?"u":""}">${s==="fut"?"":fmt(a)}</td>`}).join("");g+=t;return`<tr><td>${n.slice(0,3)}</td>${c}<td><b>${fmt(t)}</b></td></tr>`}).join("");
  return`<div class="sum"><div><span class="mu">Total rents ${Y}</span><b>₹${fmt(g)}</b></div><div><span class="mu">Maintenance</span><b>₹${fmt(mt)}</b></div></div>
- <div class="tw"><table><thead><tr><th>Month</th>${D.houses.map((H,h)=>`<th>${h+1}<br><small>${esc(H.name.split(" ")[0]||"-")}</small></th>`).join("")}<th>Total</th></tr></thead><tbody>${rows}</tbody>
+ <div class="tw"><table><thead><tr><th>Month</th>${hs.map(H=>`<th>${H.id+1}<br><small>${esc(H.name.split(" ")[0]||"-")}</small></th>`).join("")}<th>Total</th></tr></thead><tbody>${rows}</tbody>
  <tfoot><tr><td>Total</td>${tot.map(t=>`<td>${fmt(t)}</td>`).join("")}<td>${fmt(g)}</td></tr></tfoot></table></div><p class="mu">Red = not paid. Green = received.</p>`}
-function vBackup(){const A=window.Android?`<div class="card"><b>Google Drive</b><p class="mu">In the file picker, choose Drive, then pick a folder (save) or the backup file (restore).</p><button class="btn" id="gs">Save backup to Google Drive</button><button class="btn alt" id="gr" style="margin-top:8px">Restore from Google Drive</button></div>`:"";return A+`<div class="card"><b>Backup / restore (text)</b><p class="mu">Copy this text and keep it safe (WhatsApp to yourself, Notes). Paste it back to restore on another phone.</p>
- <textarea id="bk" rows="6">${esc(JSON.stringify(D))}</textarea><button class="btn" id="cp" style="margin-top:8px">Copy backup</button>
- <button class="btn alt" id="rs" style="margin-top:8px">Restore from pasted text</button></div>`}
-function bindBackup(){if(window.Android){$("#gs").onclick=()=>Android.saveBackup(JSON.stringify(D));$("#gr").onclick=()=>Android.restoreBackup()}$("#cp").onclick=()=>{$("#bk").select();try{navigator.clipboard.writeText($("#bk").value)}catch(e){document.execCommand("copy")}$("#cp").textContent="Copied ✓"};
- $("#rs").onclick=()=>{try{const x=JSON.parse($("#bk").value);if(!x.houses||!x.rec)throw 0;D=x;save();tab="home";render()}catch(e){$("#rs").textContent="Invalid backup text"}}}
-function openMonth(h,m){const H=D.houses[h],k=rk(h,m),r=D.rec[k]||{};const td=new Date().toISOString().slice(0,10);
- $("#sh").innerHTML=`<div class="row"><div class="num">${h+1}</div><div class="grow"><b>${esc(H.name||"No tenant")}</b><div class="mu">${MN[m]} ${Y}</div></div></div>
+function vSettings(){const s=D.set,lb=lastB();
+ const opts=[["change","After every change"],["daily","Once a day"],["weekly","Once a week"],["off","Off"]].map(o=>`<option value="${o[0]}"${s.freq===o[0]?" selected":""}>${o[1]}</option>`).join("");
+ const bk=isApp?`<div class="card"><b>Google Drive backup</b>
+ <p class="mu">Backup file: ${Android.hasBackupFile()?"chosen ✓":"not chosen yet"}<br>Last backup: ${lb?new Date(lb).toLocaleString():"never"}</p>
+ <button class="btn" id="bc">Choose backup file in Google Drive</button>
+ <button class="btn alt" id="bn" style="margin-top:8px">Backup now</button>
+ <label>Automatic backup</label><select id="bf">${opts}</select>
+ <p class="mu">Automatic backups run while you use the app. Choose the file once and pick Drive in the file picker.</p>
+ <button class="btn alt" id="br" style="margin-top:8px">Restore from Google Drive</button></div>`
+ :`<div class="card"><b>Google Drive backup</b><p class="mu">Available in the installed Android app.</p></div>`;
+ return`<div class="card"><b>Theme</b><div class="row" style="margin-top:8px"><button class="btn ${s.theme==="day"?"":"alt"}" data-th="day">Day</button><button class="btn ${s.theme==="day"?"alt":""}" data-th="night">Night</button></div></div>
+ <div class="card"><b>Years in the year box</b><div class="row"><div class="grow"><label>From</label><input type="number" id="y1" value="${s.y1}"></div><div class="grow"><label>To</label><input type="number" id="y2" value="${s.y2}"></div></div><button class="btn" id="ya" style="margin-top:10px">Apply years</button></div>`+bk}
+function bindSettings(){
+ document.querySelectorAll("[data-th]").forEach(b=>b.onclick=()=>{D.set.theme=b.dataset.th;save();theme();render()});
+ $("#ya").onclick=()=>{const a=+$("#y1").value,b=+$("#y2").value;if(!(a>=1990&&b<=2200&&a<=b))return toast("Enter valid years (1990 to 2200)");D.set.y1=a;D.set.y2=b;save();buildYears();toast("Years updated")};
+ if(isApp){$("#bc").onclick=()=>Android.chooseBackupFile();$("#bn").onclick=()=>Android.hasBackupFile()?autoB(true):Android.chooseBackupFile();$("#bf").onchange=e=>{D.set.freq=e.target.value;save()};$("#br").onclick=()=>Android.restoreBackup()}}
+function openMonth(id,m){const H=hid(id),k=rk(id,m),r=D.rec[k]||{},td=new Date().toISOString().slice(0,10);
+ $("#sh").innerHTML=`<div class="row"><div class="num">${id+1}</div><div class="grow"><b>${esc(H.name||"No tenant")}</b><div class="mu">${MN[m]} ${Y}</div></div></div>
  <label>Date received</label><input type="date" id="fd" value="${r.date||td}">
  <label>Rent amount</label><input type="number" inputmode="numeric" id="fa" value="${r.amount??(H.rent||"")}">
  <label>Maintenance (optional)</label><input type="number" inputmode="numeric" id="fm" value="${r.maint||""}">
@@ -100,7 +126,5 @@ function openMonth(h,m){const H=D.houses[h],k=rk(h,m),r=D.rec[k]||{};const td=ne
  if($("#x3"))$("#x3").onclick=()=>{delete D.rec[k];save();$("#md").classList.remove("show");render()}}
 $("#md").onclick=e=>{if(e.target.id==="md")$("#md").classList.remove("show")};
 document.addEventListener("click",e=>{const t=e.target.closest("[data-m]");if(t&&tab==="home")openMonth(+t.dataset.h,+t.dataset.m)});
-window.onRestore=t=>{try{const x=JSON.parse(t);if(!x.houses||!x.rec)throw 0;D=x;save();tab="home";render();alert("Backup restored")}catch(e){alert("Invalid backup file")}};
-window.onSaved=()=>alert("Backup saved");
-render();
+theme();buildYears();render();setTimeout(()=>autoB(false),1500);
 </script></body></html>
